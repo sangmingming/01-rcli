@@ -6,9 +6,9 @@ use std::fs;
 #[derive(Debug, Serialize, Deserialize)]
 struct Player {
     #[serde(rename = "Name")]
-    name: String, 
+    name: String,
     #[serde(rename = "Position")]
-    position: String, 
+    position: String,
     #[serde(rename = "DOB")]
     dob: String,
     #[serde(rename = "Nationality")]
@@ -19,12 +19,12 @@ struct Player {
 
 pub fn process_csv(input: &str, output: &str) -> anyhow::Result<()> {
     let mut reader = Reader::from_path(input)?;
-            let mut ret = Vec::with_capacity(128);
-            for result in reader.deserialize() {
-                let record: Player = result?;
-                ret.push(record);
-            }
-            let json = serde_json::to_string_pretty(&ret)?;
-            fs::write(output, json)?;
-            anyhow::Ok(())
+    let mut ret = Vec::with_capacity(128);
+    for result in reader.deserialize() {
+        let record: Player = result?;
+        ret.push(record);
+    }
+    let json = serde_json::to_string_pretty(&ret)?;
+    fs::write(output, json)?;
+    anyhow::Ok(())
 }

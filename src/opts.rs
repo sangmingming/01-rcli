@@ -1,7 +1,6 @@
 use clap::Parser;
 use std::path::Path;
 
-
 #[derive(Debug, Parser)]
 #[command(name = "rcli", version, author, about, long_about = None)]
 pub struct Opts {
@@ -10,7 +9,7 @@ pub struct Opts {
 }
 
 #[derive(Debug, Parser)]
-pub struct  CsvOpts {
+pub struct CsvOpts {
     #[arg(short, long, value_parser = verify_input_file)]
     pub input: String,
     #[arg(short, long, default_value = "output.json")]
