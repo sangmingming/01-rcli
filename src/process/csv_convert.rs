@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 
-use crate::opts::OutputFormat;
+use crate::cli::OutputFormat;
 
 //Name,Position,DOB,Nationality,Kit Number
 #[derive(Debug, Serialize, Deserialize)]
