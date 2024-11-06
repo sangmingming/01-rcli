@@ -2,8 +2,9 @@ use std::fs;
 
 use clap::Parser;
 use rcli::{
-    process_csv, process_decode, process_encode, process_generate_key, process_genpass,
-    process_text_sign, process_text_verify, Base64SubCommand, TextSignFormat, TextSubCommand,
+    process_csv, process_decode, process_decrypt, process_encode, process_encrypt,
+    process_generate_key, process_genpass, process_text_sign, process_text_verify,
+    Base64SubCommand, TextSignFormat, TextSubCommand,
 };
 use rcli::{Opts, SubCommand};
 use zxcvbn::zxcvbn;
@@ -65,6 +66,14 @@ fn main() -> anyhow::Result<()> {
                         fs::write(pub_path, &key[1])?;
                     }
                 }
+            }
+            TextSubCommand::Encrypt(opts) => {
+                let result = process_encrypt(&opts.input, &opts.key)?;
+                println!("encrypted content is: {}", result);
+            }
+            TextSubCommand::Decrypt(opts) => {
+                let result = process_decrypt(&opts.input, &opts.key)?;
+                println!("the origin content is: {}", result);
             }
         },
     }

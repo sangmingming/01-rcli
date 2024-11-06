@@ -6,11 +6,32 @@ use crate::cli::TextSignFormat;
 use crate::utils::get_reader;
 use anyhow::{Ok, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use chacha20poly1305::{
+    aead::{Aead, AeadCore, KeyInit},
+    ChaCha20Poly1305, Key, Nonce,
+};
 use ed25519_dalek::ed25519::signature::SignerMut;
 use ed25519_dalek::{Signature, SigningKey, Verifier, VerifyingKey};
 use rand::rngs::OsRng;
 
 use super::process_genpass;
+
+pub fn process_encrypt(input: &str, key: &str) -> Result<String> {
+    let mut input_reader = get_reader(input)?;
+    let mut buf = Vec::new();
+    input_reader.read_to_end(&mut buf)?;
+    let cipher = ChaCha20Poly1305Cipher::load(key)?;
+    cipher.encrypt(&buf)
+}
+
+pub fn process_decrypt(input: &str, key: &str) -> Result<String> {
+    let mut input_reader = get_reader(input)?;
+    let mut buf = Vec::new();
+    input_reader.read_to_end(&mut buf)?;
+    let buf = buf.trim_ascii_end();
+    let cipher = ChaCha20Poly1305Cipher::load(key)?;
+    cipher.decrypt(buf)
+}
 
 pub fn process_generate_key(format: TextSignFormat) -> Result<Vec<Vec<u8>>> {
     match format {
@@ -41,7 +62,7 @@ pub fn process_text_verify(
     format: TextSignFormat,
     sig: &str,
 ) -> Result<bool> {
-    let mut input_reader = get_reader(input)?;
+    let mut input_reader: Box<dyn Read> = get_reader(input)?;
     let signed = URL_SAFE_NO_PAD.decode(sig.as_bytes())?;
     let verify_result = match format {
         TextSignFormat::Blake3 => {
@@ -210,6 +231,64 @@ impl KeyGenerator for Ed25519Signer {
     }
 }
 
+struct ChaCha20Poly1305Cipher {
+    cipher: ChaCha20Poly1305,
+}
+
+impl ChaCha20Poly1305Cipher {
+    pub fn new(key: [u8; 32]) -> Self {
+        let key = Key::from_slice(&key);
+        let cipher = ChaCha20Poly1305::new(key);
+        Self { cipher }
+    }
+
+    pub fn try_new(key: &[u8]) -> Result<Self> {
+        let key = &key[..32];
+        let key = key.try_into().unwrap();
+        Ok(Self::new(key))
+    }
+
+    pub fn encrypt(&self, input: &[u8]) -> Result<String> {
+        let nonce = ChaCha20Poly1305::generate_nonce(&mut chacha20poly1305::aead::OsRng);
+        let cipher_result = self.cipher.encrypt(&nonce, input.as_ref());
+        match cipher_result {
+            std::result::Result::Ok(encrypted) => {
+                let mut v = Vec::new();
+                v.extend(nonce);
+                v.extend(encrypted);
+                let ciphertext = URL_SAFE_NO_PAD.encode(v);
+                Ok(ciphertext)
+            }
+            Err(e) => anyhow::bail!("Error encrypting: {}", e),
+        }
+    }
+
+    pub fn decrypt(&self, input: &[u8]) -> Result<String> {
+        let buf = URL_SAFE_NO_PAD.decode(input)?;
+        let nonce = &buf[..12];
+        let content = &buf[12..];
+        let nonce = Nonce::from_slice(nonce);
+        let cipher_result = self.cipher.decrypt(nonce, content.as_ref());
+        match cipher_result {
+            std::result::Result::Ok(decrypted) => {
+                let v = String::from_utf8(decrypted)?;
+                Ok(v)
+            }
+            Err(e) => anyhow::bail!("Error decrypting: {}", e),
+        }
+    }
+}
+
+impl KeyLoader for ChaCha20Poly1305Cipher {
+    fn load(path: impl AsRef<Path>) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        let key = fs::read(path)?;
+        Self::try_new(&key)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -235,6 +314,15 @@ mod test {
         let signed = signer.sign(&mut input)?;
         let verify_result = verifyer.verify(&mut input_for_verify, &signed)?;
         assert!(verify_result);
+        Ok(())
+    }
+
+    #[test]
+    fn test_encrypt_decrypt() -> Result<()> {
+        let cipher = ChaCha20Poly1305Cipher::load("fixtures/blake3.key")?;
+        let encrypted = cipher.encrypt(b"Hello!")?;
+        let decrypted = cipher.decrypt(encrypted.as_bytes())?;
+        assert_eq!(&decrypted, "Hello!");
         Ok(())
     }
 }
