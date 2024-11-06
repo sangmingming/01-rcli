@@ -1,33 +1,28 @@
+use crate::utils::get_reader;
 use crate::Base64Format;
 use anyhow::Error;
 use base64::{
     engine::general_purpose::GeneralPurpose, engine::general_purpose::STANDARD,
     engine::general_purpose::URL_SAFE_NO_PAD, Engine as _,
 };
-use std::{fs::File, io::Read};
+use std::io::Read;
 
-pub fn process_encode(input: &str, format: Base64Format) -> anyhow::Result<()> {
+pub fn process_encode(input: &str, format: Base64Format) -> anyhow::Result<String> {
     let buff = read_buff(input)?;
     let encoded = create_engine(format).encode(buff);
-    println!("{}", encoded);
-    anyhow::Ok(())
+    anyhow::Ok(encoded)
 }
 
-pub fn process_decode(input: &str, format: Base64Format) -> anyhow::Result<()> {
+pub fn process_decode(input: &str, format: Base64Format) -> anyhow::Result<String> {
     let buff = read_buff(input)?;
     let buff = buff.trim_ascii_end();
     let decoded = create_engine(format).decode(buff)?;
     let decoded = String::from_utf8(decoded)?;
-    println!("{}", decoded);
-    anyhow::Ok(())
+    anyhow::Ok(decoded)
 }
 
 fn read_buff(input: &str) -> Result<Vec<u8>, Error> {
-    let mut reader: Box<dyn Read> = if input == "-" {
-        Box::new(std::io::stdin())
-    } else {
-        Box::new(File::open(input)?)
-    };
+    let mut reader = get_reader(input)?;
     let mut buf = Vec::new();
     reader.read_to_end(&mut buf)?;
     Ok(buf)
