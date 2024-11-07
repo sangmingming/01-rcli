@@ -2,12 +2,14 @@ mod base64;
 mod csv;
 mod genpass;
 mod http;
+mod jwt;
 mod text;
 
 pub use self::base64::*;
 pub use self::csv::*;
 pub use self::genpass::*;
 pub use self::http::*;
+pub use self::jwt::*;
 pub use self::text::*;
 use clap::Parser;
 use enum_dispatch::enum_dispatch;
@@ -26,6 +28,8 @@ pub enum SubCommand {
     Text(TextSubCommand),
     #[command(subcommand, about = "HTTP File Server")]
     Http(HttpSubCommand),
+    #[command(subcommand, about = "Jwt token sign/verify")]
+    Jwt(JwtSubCommand),
 }
 
 #[derive(Debug, Parser)]
