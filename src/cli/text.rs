@@ -1,8 +1,13 @@
+use crate::{
+    process_decrypt, process_encrypt, process_generate_key, process_text_sign, process_text_verify,
+    CmdExector,
+};
+
 use super::{verify_file, verify_path};
 use anyhow::Error;
 use clap::Parser;
 use core::fmt;
-use std::{path::PathBuf, str::FromStr};
+use std::{fs, path::PathBuf, str::FromStr};
 
 #[derive(Debug, Parser)]
 pub enum TextSubCommand {
@@ -16,6 +21,69 @@ pub enum TextSubCommand {
     Encrypt(TextEncryptOpts),
     #[command(about = "Decrypt message")]
     Decrypt(TextDecryptOpts),
+}
+
+impl CmdExector for TextSubCommand {
+    async fn execute(self) -> anyhow::Result<()> {
+        match self {
+            TextSubCommand::Sign(opts) => opts.execute().await,
+            TextSubCommand::Verify(opts) => opts.execute().await,
+            TextSubCommand::Encrypt(opts) => opts.execute().await,
+            TextSubCommand::Decrypt(opts) => opts.execute().await,
+            TextSubCommand::Generate(opts) => opts.execute().await,
+        }
+    }
+}
+
+impl CmdExector for TextEncryptOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let result = process_encrypt(&self.input, &self.key)?;
+        println!("encrypted content is: {}", result);
+        Ok(())
+    }
+}
+
+impl CmdExector for TextDecryptOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let result = process_decrypt(&self.input, &self.key)?;
+        println!("the origin content is: {}", result);
+        Ok(())
+    }
+}
+
+impl CmdExector for TextGenerateKeyOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let key = process_generate_key(self.format)?;
+        match self.format {
+            TextSignFormat::Blake3 => {
+                let path = self.output.join("blake3.key");
+                fs::write(path, &key[0])?;
+            }
+            TextSignFormat::Ed25519 => {
+                let pri_path = self.output.join("ed25519.key");
+                let pub_path = self.output.join("ed25519.pub");
+                fs::write(pri_path, &key[0])?;
+                fs::write(pub_path, &key[1])?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl CmdExector for TextVerifyOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let verify_result = process_text_verify(&self.input, &self.key, self.format, &self.sig)?;
+        println!("Verify Result {}", verify_result);
+        Ok(())
+    }
+}
+
+impl CmdExector for TextSignOpts {
+    async fn execute(self) -> anyhow::Result<()> {
+        let signed = process_text_sign(&self.input, &self.key, self.format)?;
+        println!("{}", signed);
+        Ok(())
+    }
 }
 
 #[derive(Debug, Parser)]
