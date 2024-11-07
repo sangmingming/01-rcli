@@ -4,17 +4,17 @@ mod genpass;
 mod http;
 mod text;
 
-use crate::CmdExector;
-
-pub use self::base64::{Base64Format, Base64SubCommand};
-pub use self::csv::{CsvOpts, OutputFormat};
-pub use self::http::HttpSubCommand;
-pub use self::text::{TextSignFormat, TextSubCommand};
+pub use self::base64::*;
+pub use self::csv::*;
+pub use self::genpass::*;
+pub use self::http::*;
+pub use self::text::*;
 use clap::Parser;
-use genpass::GenPassOpts;
+use enum_dispatch::enum_dispatch;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Parser)]
+#[enum_dispatch(CmdExector)]
 pub enum SubCommand {
     #[command(name = "csv", about = "Show CSV, or convert csv to other format")]
     Csv(CsvOpts),
@@ -26,18 +26,6 @@ pub enum SubCommand {
     Text(TextSubCommand),
     #[command(subcommand, about = "HTTP File Server")]
     Http(HttpSubCommand),
-}
-
-impl CmdExector for SubCommand {
-    async fn execute(self) -> anyhow::Result<()> {
-        match self {
-            Self::Csv(opts) => opts.execute().await,
-            Self::Base64(opts) => opts.execute().await,
-            Self::GenPass(opts) => opts.execute().await,
-            Self::Http(cmd) => cmd.execute().await,
-            Self::Text(cmd) => cmd.execute().await,
-        }
-    }
 }
 
 #[derive(Debug, Parser)]
