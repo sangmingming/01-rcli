@@ -1,3 +1,9 @@
 ### test index page
 
 GET http://localhost:8080/Cargo.toml
+
+### test tower file server
+
+GET http://localhost:8080/tower/Cargo.toml
+Accept-Encoding: gzip
+Range: bytes=0-120
